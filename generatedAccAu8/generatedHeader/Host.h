@@ -47,17 +47,18 @@ class Host {
 		AcAuthAns acAuthAns;
 		
 		// client id;
-		int clientId;
+		ip_address clientId;
 		
 	public: 
 		ByteVec SymEnc(ByteVec msg, int key);
 		ByteVec SymDec(ByteVec msg, int key);
-		ByteVec Sign(ByteVec msg, int skey);
-		bool Verify(char* encrypted, int pkey);
+		void Sign(unsigned char* msg, unsigned char* sig, size_t msglen);
+		bool Verify(unsigned char* msg, unsigned char* sig, size_t msglen);
 		int receive();
 		int send(ByteVec msg, u_short type_num, u_char dmac[6]);
 		void SMLMainHost();
 		void initConfig();
+		bool IPEqual(ip_address* ip1, ip_address* ip2);
 };
 static int __currentState = STATE___init;
 int main(int argc, char** argv) {

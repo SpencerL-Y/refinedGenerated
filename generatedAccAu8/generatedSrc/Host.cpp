@@ -95,20 +95,33 @@ ByteVec result;
 	return result;
 
 }
-ByteVec Host::Sign(ByteVec msg, int skey){
-	Signature sig;
-	memset(sig.sig,  0, 128);
-	return sig;
-
+void Host::Sign(unsigned char* msg, unsigned char* sig, size_t msglen){
+	//sig = malloc(IBE_SIG_LEN * sizeof(unsigned char));
+	// if (digital_sign(msg, msglen, usr_privkey, sig) == -1) {
+    //     printf("digital_sign failed\n");
+    //     goto end;
+    // }
 }
-bool Host::Verify(char* encrypted, int pkey){
-bool result;
-	return true;
 
+bool Host::Verify(unsigned char* msg, unsigned char* sig, size_t msglen){
+	return true;
+	//return digital_verify(sig, msg, msglen, hostIp, master_pubkey);
 }
 
 void Host::initConfig(){
 
+}
+
+
+bool IPEqual(ip_address* ip1, ip_address* ip2){
+		if(ip1->byte1 == ip2->byte1 &&
+		   ip1->byte2 == ip2->byte2 &&
+		   ip1->byte3 == ip2->byte3 &&
+		   ip1->byte4 == ip2->byte4){
+			   return true;
+		} else {
+			return false;
+		}
 }
 
 void Host::SMLMainHost(){
@@ -125,14 +138,21 @@ void Host::SMLMainHost(){
 					acAuthReq_c2g.auth_hdr.type = 0x01;
 					acAuthReq_c2g.auth_hdr.version = 1;
 					//TODO: CONFIGURE THE CLIENT IP
-					acAuthReq_c2g.client_id = 0;
+					acAuthReq_c2g.client_id.byte1 = 0;
+					acAuthReq_c2g.client_id.byte2 = 0;
+					acAuthReq_c2g.client_id.byte3 = 0;
+					acAuthReq_c2g.client_id.byte4 = 0;
 					//TODO: CONFIGURE THE CLIENT MAC
-					for(int i = 0; i < 6; i ++){
-						acAuthReq_c2g.client_mac[i] = 0;
-					}
+					acAuthReq_c2g.client_mac[0] = 0;
+					acAuthReq_c2g.client_mac[1] = 0;
+					acAuthReq_c2g.client_mac[2] = 0;
+					acAuthReq_c2g.client_mac[3] = 0;
+					acAuthReq_c2g.client_mac[4] = 0;
+					acAuthReq_c2g.client_mac[5] = 0;
+					
 					acAuthReq_c2g.gateway_id = gwAnce.gateway_id;
 					//TODO: add sign here
-					acAuthReq_c2g.client_signature = Sign();
+					Sign((unsigned char*)&acAuthReq_c2g, acAuthReq_c2g.client_signature, sizeof(AcAuthReq_C2G) - 16);
 				__currentState = STATE__reqMsgCreated;
 				
 				break;}
@@ -166,11 +186,11 @@ void Host::SMLMainHost(){
 			case STATE__queRecieved:{
 				std::cout << "--------------------STATE__queRecieved" << std::endl;
 				//TODO add verify here
-				if(!Verify((char*)(&authQu.server_signature),serverPk)){
+				if(!Verify((unsigned char*)&authQu, (unsigned char*)authQu.server_signature, sizeof(AuthQu) - 16)){
 					__currentState = STATE__verifyAuthQueFailed;
-				} else if(Verify((char*)(&authQu.server_signature),serverPk)){
+				} else if(Verify((unsigned char*)&authQu, (unsigned char*)authQu.server_signature, sizeof(AuthQu) - 16)){
 					std::cout << "identity judgement" << std::endl;
-					if(ntohl(authQu.client_id) != this->clientId){
+					if(!this->IPEqual(&authQu.client_id, &this->clientId)){
 						std::cout << "ERROR: receive client id error" << std::endl;
 					}
 					std::cout << "serial number consistency judgement" << std::endl;
@@ -183,9 +203,9 @@ void Host::SMLMainHost(){
 					authQuAck.auth_hdr.serial_num = authQu.auth_hdr.serial_num;
 					authQuAck.auth_hdr.timestamp = authQu.auth_hdr.timestamp;
 					authQuAck.auth_hdr.type = 0x21;
-					authQuAck.client_id = htonl(this->clientId);
+					authQuAck.client_id = this->clientId;
 					authQuAck.random_number_rs = htonl(this->random_number_rs);
-					authQuAck.client_signature = Sign();
+					Sign((unsigned char*)&authQuAck, (unsigned char*)&authQuAck.client_signature, sizeof(AuthQuAck) - 16);
 					__currentState = STATE__queRespCreated;
 				}
 				break;}
@@ -220,12 +240,12 @@ void Host::SMLMainHost(){
 
 				memcpy(&acAuthAns, tempDataHost, sizeof(AcAuthAns));
 				//TODO: add verify
-				if(Verify((char*)acAuthAns.server_signature,serverPk)){
+				if(Verify((unsigned char*)&acAuthAns, (unsigned char*)&acAuthAns.server_signature, sizeof(AcAuthAns) - 16)){
 					//hostIpSk = SymDec(authRespMsg.secHostIpSk,hostIdSk);
-				__currentState = STATE___final;
+					__currentState = STATE___final;
 				}
-				else if(!Verify((char*)acAuthAns.server_signature,serverPk)){
-				__currentState = STATE__verifyAuthRespFailed;
+				else if(!Verify((unsigned char*)&acAuthAns, (unsigned char*)&acAuthAns.server_signature, sizeof(AcAuthAns) - 16)){
+					__currentState = STATE__verifyAuthRespFailed;
 				}
 				break;}
 			case STATE__verifyAuthRespFailed:{

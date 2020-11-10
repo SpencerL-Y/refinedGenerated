@@ -37,6 +37,7 @@ static std::string tempDataServerStr;
 class Server {
 	private: 
 	private:
+		ByteVec msg;
 		int hostId;
 		int gateway;
 		int server;
@@ -51,10 +52,15 @@ class Server {
 		int hostIdPk;
 		Key hostIpSk;
 		ByteVec secHostIpSk;
+
+		AcAuthReq_G2S acAuthReq_g2s;
+		AuthQu authQu;
+		AuthQuAck authQuAck;
+		ip_address client_id;
 	public: 
 		ByteVec SymEnc(ByteVec msg, int key);
-		ByteVec Sign(ByteVec msg, int skey);
-		bool Verify(ByteVec msg, int pkey);
+		void Sign(unsigned char* msg, unsigned char* sig, size_t msglen);
+		bool Verify(unsigned char* msg, unsigned char* sig, size_t msglen);
 		int receive(ByteVec msg);
 		int send(ByteVec msg);
 		void SMLMainServer();

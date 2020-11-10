@@ -11,6 +11,7 @@
 #include <thread>
 #include <stdlib.h>
 #include <typeinfo>
+#include <time.h>
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 
@@ -36,17 +37,24 @@ static pcap_t* devGateway;
 static char* tempDataGateway;
 static std::string tempDataGatewayStr;
 ;class Gateway {
-	private: 
+	
 	private:
 		int hostId;
 		int gateway;
 		int server;
 		ByteVec msg;
-		int hostIdPk;
-		int serverPk;
+		time_t latest_time;
+		GwAnce gwAnce;
+		AcAuthReq_C2G acAuthReq_c2g;
+		AcAuthReq_G2S AcAuthReq_g2s;
+		AuthQuAck authQuAck;
+		AuthQu authQu;
+		AcAuthAns acAuthAns;
+
+
 	public: 
-		ByteVec Sign(ByteVec msg, int skey);
-		bool Verify(ByteVec msg, int pkey);
+		void Sign(unsigned char* msg, unsigned char* sig, size_t msglen);
+		bool Verify(unsigned char* msg, unsigned char* sig, size_t msglen);
 		int recvFromHost(ByteVec msg);
 		int sendToHost(ByteVec msg);
 		int recvFromServer(ByteVec msg);

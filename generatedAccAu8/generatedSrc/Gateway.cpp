@@ -12,12 +12,10 @@ static void dataHandlerGatewayrecvFromHost(u_char* param, const struct pcap_pkth
 		if(auth_hdr->type == 0x10){
 			tempDataGateway = (char*)malloc(sizeof(AcAuthReq_C2G));
 			memcpy(tempDataGateway, auth_hdr, sizeof(AcAuthReq_C2G));
-
 			pcap_breakloop(devGateway);
 		} else if(auth_hdr->type == 0x21){
 			tempDataGateway = (char*)malloc(sizeof(AuthQuAck));
 			memcpy(tempDataGateway, auth_hdr, sizeof(AuthQuAck));
-
 			pcap_breakloop(devGateway);
 		} else {
 
@@ -101,28 +99,62 @@ int Gateway::sendToServer(ByteVec msg){
 	u_short portNum_ = 6666;
 	UDPSender snd;
 	/*Add length and data content to send here*/
+	
 
-
-	u_char* data_ = (u_char*)tempDataGatewayStr.c_str();
 	int length_ = tempDataGatewayStr.size();
+	auth_header* auth_hdr = (auth_header*)tempDataGateway;
+	u_char* data_;
+	if(auth_hdr->type == 0x10){
+
+		AcAuthReq_C2G* old_packet = (AcAuthReq_C2G*)tempDataGateway;
+		memcpy(&acAuthReq_c2g, tempDataGateway, sizeof(AcAuthReq_C2G));
+		data_ = (u_char*)malloc(sizeof(AcAuthReq_G2S));
+		AcAuthReq_G2S packet;
+		packet.auth_hdr.length = htonl(sizeof(AcAuthReq_G2S) - sizeof(auth_header));
+		packet.auth_hdr.serial_num = old_packet->auth_hdr.serial_num;
+		packet.auth_hdr.timestamp = old_packet->auth_hdr.timestamp;
+		packet.auth_hdr.serial_num = old_packet->auth_hdr.serial_num;
+		packet.auth_hdr.type = old_packet->auth_hdr.type;
+		packet.auth_hdr.version = old_packet->auth_hdr.version;
+		packet.client_id = old_packet->client_id;
+		memcpy(packet.client_mac, old_packet->client_mac, 6*sizeof(char));
+		memcpy(packet.client_signature, old_packet->client_signature, 16*sizeof(char));
+		packet.gateway_id = old_packet->gateway_id;
+		packet.gateway_random_number = old_packet->gateway_random_number;
+		Sign((unsigned char*)&packet.auth_hdr, (unsigned char*)&packet.gateway_signature, sizeof(AcAuthReq_G2S) - 16);
+		memcpy(data_, &packet, sizeof(AcAuthReq_G2S));
+	} else if(auth_hdr->type = 0x21){
+		memcpy(&this->authQuAck, tempDataGateway, sizeof(AuthQuAck));
+		//test the validity TODO
+		bool result = this->authQuAck.auth_hdr.serial_num == this->authQu.auth_hdr.serial_num;
+		result &= this->authQuAck.auth_hdr.timestamp == this->authQu.auth_hdr.timestamp;
+		result &= this->authQuAck.auth_hdr.type == 0x21;
+		if(!result){
+			std::cout << "error: info error" << std::endl;
+		}
+		data_ = (u_char*)malloc(sizeof(AuthQuAck));
+		memcpy(data_, &this->authQuAck, sizeof(AuthQuAck));
+	}
 
 	std::cout << "send: " << tempDataGatewayStr << std::endl;
 	int result = snd.sendPacket(data_, length_, IPStr_, portNum_);
-	
+	free(data_);
 	return result;
 }
 
-ByteVec Gateway::Sign(ByteVec msg, int skey){
-Signature sig;
-	memset(sig.sig,  0, 128);
-	return sig;
-
+void Gateway::Sign(unsigned char* msg, unsigned char* sig, size_t msglen){
+	//sig = malloc(IBE_SIG_LEN * sizeof(unsigned char));
+	// if (digital_sign(msg, msglen, usr_privkey, sig) == -1) {
+    //     printf("digital_sign failed\n");
+    //     goto end;
+    // }
 }
-bool Gateway::Verify(ByteVec msg, int pkey){
-bool result;
-	return result;
 
+bool Gateway::Verify(unsigned char* msg, unsigned char* sig, size_t msglen){
+	return true;
+	// return digital_verify(sig, msg, msglen, hostIp, master_pubkey);
 }
+
 void Gateway::SMLMainGateway(){
 	while(__currentState != -100) {
 		switch(__currentState){
@@ -135,7 +167,6 @@ void Gateway::SMLMainGateway(){
 					GwAnce ancePacket;
 					ancePacket.auth_hdr.length = htonl(sizeof(GwAnce) - sizeof(auth_header));
 					ancePacket.auth_hdr.serial_num = htonl(0);
-					ancePacket.auth_hdr.timestamp = htonl(0);
 					ancePacket.auth_hdr.type = 0x01;
 					ancePacket.auth_hdr.version = 1;
 					//TODO: configure gateway ip and mac here
@@ -152,10 +183,19 @@ void Gateway::SMLMainGateway(){
 					ancePacket.gateway_mac[6] = 0x11;
 					//TODO: configure random number here
 					ancePacket.gateway_random_number = htonl(0);
+					time_t t;
+					time(&t);
+					latest_time = t;
+					ancePacket.auth_hdr.timestamp = htonl(t);
 					//TODO: add memcpy here
-					char* sig = Sign();
-					ancePacket.signature;
-
+					Sign((unsigned char*)&ancePacket, (unsigned char*)&ancePacket.signature, sizeof(GwAnce) - 16);
+					gwAnce = ancePacket;
+					if(tempDataGateway != NULL){
+						free(tempDataGateway);
+					}
+					tempDataGateway = (char*)malloc(sizeof(GwAnce));
+					memcpy(tempDataGateway, &gwAnce, sizeof(GwAnce));
+					tempDataGatewayStr = tempDataGateway;
 					sendToHost(msg);
 					recvFromHost(msg);
 				__currentState = STATE__reqMsgRecved;
