@@ -89,10 +89,12 @@ void Server::SMLMainServer(){
 					authQu.auth_hdr.type = 0x20;
 					authQu.auth_hdr.version = 1;
 					authQu.client_id = acAuthReq_g2s.client_id;
-					authQu.random_num_rs = rand(); 
+					authQu.random_num_rs = htonl(rand()); 
 					authQu.server_id.byte1 = 0; 
 					authQu.server_id.byte2 = 0; 
 					authQu.server_id.byte3 = 0; 
+					authQu.server_id.byte4 = 0;
+					
 					Sign((unsigned char*)&authQu, (unsigned char*)&authQu.server_signature, sizeof(AuthQu) - 16);
 				__currentState = STATE__queCreated;
 				}
@@ -103,9 +105,13 @@ void Server::SMLMainServer(){
 			{
 				
 					std::cout << "--------------------STATE__queCreated" << std::endl;
-					
-					
-					
+					if(tempDataServer != NULL){
+						free(tempDataServer);
+					}
+					tempDataServer = (char*)malloc(sizeof(AuthQu));
+					memcpy(tempDataServer, &authQu, sizeof(AuthQu));
+					msg.data = tempDataServer;
+					send(msg);
 					__currentState = STATE__queSent;
 
 				
@@ -120,36 +126,57 @@ void Server::SMLMainServer(){
 			case STATE__queSent:{
 				std::cout << "--------------------STATE__queSent" << std::endl;
 				
-					receive(queRespMsg);
+				receive(msg);
 				std::cout << "udp packet received" << std::endl;
-				std::istringstream queSentIs(tempDataServerStr);
-				boost::archive::text_iarchive queSentIA(queSentIs);
-				queSentIA >> queRespMsg;
 				__currentState = STATE__queRespRecved;
 				
 				break;}
 			case STATE__queRespRecved:{
 				std::cout << "--------------------STATE__queRespRecved" << std::endl;
-				if(!Verify(queRespMsg,hostIdPk)||queRespMsg.nonce!=nonce){
-				__currentState = STATE__verifyQueRespFailed;
+				if(!Verify((unsigned char*)&authQuAck, (unsigned char*)&authQuAck.client_signature, sizeof(AuthQuAck) - 16)){
+					__currentState = STATE__verifyQueRespFailed;
 				}
-				else if(Verify(queRespMsg,hostIdPk)&&queRespMsg.nonce==nonce){
-					authRespMsg.head.msgType = 3;
-					authRespMsg.head.timeStamp.time = queRespMsg.head.timeStamp.time +1;
-					authRespMsg.host = queRespMsg.host;
-					authRespMsg.gateway = gateway;
-					authRespMsg.hostIp = hostIp;
-					secHostIpSk = SymEnc(hostIpSk,hostIdPk);
-					authRespMsg.secHostIpSk = secHostIpSk;
-					authRespMsg.server = server;
-					authRespMsg.signature = Sign(authRespMsg,serverSk);
+				else if(Verify((unsigned char*)&authQuAck, (unsigned char*)&authQuAck.client_signature, sizeof(AuthQuAck) - 16)){
+					bool result = true;
+					result &= authQuAck.auth_hdr.serial_num == authQu.auth_hdr.serial_num;
+					result &= authQuAck.auth_hdr.type == 0x21;
+					result &= authQuAck.auth_hdr.timestamp == authQu.auth_hdr.timestamp;
+					result &= authQuAck.random_number_rs == authQu.random_num_rs;
+					if(!result){
+						std::cout << "Error: entries matching problem of authQuAck" << std::endl;
+					}
+					acAuthAns.auth_hdr.length = htonl(sizeof(AcAuthAns) - sizeof(auth_header));
+					acAuthAns.auth_hdr.serial_num = authQuAck.auth_hdr.serial_num;
+					acAuthAns.auth_hdr.timestamp = authQuAck.auth_hdr.timestamp;
+					acAuthAns.auth_hdr.type =  0x11;
+					acAuthAns.auth_hdr.version = 1;
+					int resultInt = result;
+					acAuthAns.client_id = authQuAck.client_id;
+					acAuthAns.auth_result = htonl(resultInt);
+					acAuthAns.authorization = htonl(0);
+					acAuthAns.client_ip_and_mask[0] = authQuAck.client_id;
+					acAuthAns.client_ip_and_mask[1].byte1 = 255;
+					acAuthAns.client_ip_and_mask[1].byte2 = 255;
+					acAuthAns.client_ip_and_mask[1].byte3 = 255;
+					acAuthAns.client_ip_and_mask[1].byte4 = 0;
+					acAuthAns.gateway_ip = acAuthReq_g2s.gateway_id;
+					// TODO: set prikey here.
+					acAuthAns.client_ip_prikey;
+					acAuthAns.random_num_rs = htonl(rand());
+					acAuthAns.server_id = server_id;
+					Sign((unsigned char*)&acAuthAns, (unsigned char*)&acAuthAns.server_signature, sizeof(AcAuthAns) - 16);
 				__currentState = STATE__authRespCreated;
 				}
 				break;}
 			case STATE__authRespCreated:{
 				std::cout << "--------------------STATE__authRespCreated" << std::endl;
-				
-					send(queRespMsg);
+				if(tempDataServer != NULL){
+					free(tempDataServer);
+				}
+				tempDataServer = (char*)malloc(sizeof(AcAuthAns));
+				memcpy(tempDataServer, &acAuthAns, sizeof(AcAuthAns));
+				msg.data = tempDataServer;
+				send(msg);
 				__currentState = STATE___final;
 				
 				break;}

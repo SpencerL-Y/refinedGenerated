@@ -9,7 +9,8 @@ static void dataHandlerGatewayrecvFromHost(u_char* param, const struct pcap_pkth
 			free(tempDataGateway);
 		}
 		auth_header* auth_hdr = (auth_header*)((char*)packetData + sizeof(ether_header));
-		if(auth_hdr->type == 0x10){
+		//TODO: PROBLEM HERE
+		if(auth_hdr->type == 0x10 ){
 			tempDataGateway = (char*)malloc(sizeof(AcAuthReq_C2G));
 			memcpy(tempDataGateway, auth_hdr, sizeof(AcAuthReq_C2G));
 			pcap_breakloop(devGateway);
@@ -41,7 +42,7 @@ static void dataHandlerGatewayrecvFromHost(u_char* param, const struct pcap_pkth
 }
 int Gateway::recvFromHost(ByteVec msg){
 	/*Configure your own implementation of length_*/
-	int length_ = sizeof(AcAuthReq_C2G);
+	int length_ = 1000;
 	u_char* data_ = (u_char*)malloc(length_*sizeof(u_char));
 	u_char* dst_;	/*Add MAC Address here*/
 	EtherReceiver er;
@@ -86,6 +87,12 @@ int Gateway::recvFromServer(ByteVec msg){
 	}
 	tempDataGateway = (char*)malloc(1000*sizeof(char));
 	int result = er.receivePacket((u_char*)tempDataGateway, IPStr_, portNum_);
+	auth_header* auth_hdr = (auth_header*)tempDataGateway;
+	if(auth_hdr->type == 0x20){
+		memcpy(&authQu, tempDataGateway, sizeof(AuthQu));
+	} else if(auth_hdr->length == 0x11){
+		memcpy(&acAuthAns, tempDataGateway, sizeof(AcAuthAns));
+	}
 	tempDataGatewayStr = tempDataGateway;
 	std::cout << "udp recv: " << tempDataGatewayStr << std::endl;
 	return result;
@@ -198,6 +205,8 @@ void Gateway::SMLMainGateway(){
 					tempDataGatewayStr = tempDataGateway;
 					sendToHost(msg);
 					recvFromHost(msg);
+					memcpy(&acAuthReq_c2g, tempDataGateway, sizeof(AcAuthReq_C2G));
+					
 				__currentState = STATE__reqMsgRecved;
 				
 				break;}
@@ -207,7 +216,7 @@ void Gateway::SMLMainGateway(){
 				break;}
 			case STATE__reqMsgRecved:{
 				std::cout << "--------------------STATE__reqMsgRecved" << std::endl;
-				
+
 					sendToServer(msg);
 				__currentState = STATE__reqMsgSent;
 				

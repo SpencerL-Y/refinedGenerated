@@ -56,7 +56,11 @@ class Server {
 		AcAuthReq_G2S acAuthReq_g2s;
 		AuthQu authQu;
 		AuthQuAck authQuAck;
+		AuthRespMsg authRespMsg;
+		AcAuthAns acAuthAns;
 		ip_address client_id;
+		ip_address gateway_id;
+		ip_address server_id;
 	public: 
 		ByteVec SymEnc(ByteVec msg, int key);
 		void Sign(unsigned char* msg, unsigned char* sig, size_t msglen);
