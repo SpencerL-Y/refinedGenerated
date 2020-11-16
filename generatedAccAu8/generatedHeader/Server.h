@@ -31,6 +31,12 @@
 #define STATE__queRespRecved 6
 #define STATE__authRespCreated 7
 #define STATE__verifyQueRespFailed 8
+
+std::string SELF_IP_STR = "127.0.0.1";
+std::string GATEWAY_IP_STR = "127.0.0.1";
+u_short GATEWAY_IP_PORT = 6666;
+u_short SELF_IP_PORT = 8888;
+
 static pcap_t* devServer;
 static char* tempDataServer;
 static std::string tempDataServerStr;
@@ -38,20 +44,6 @@ class Server {
 	private: 
 	private:
 		ByteVec msg;
-		int hostId;
-		int gateway;
-		int server;
-		int nonce;
-		AuthReqMsg authReqMsg;
-		AuthQueMsg authQueMsg;
-		QueRespMsg queRespMsg;
-		AuthRespMsg authRespMsg;
-		int serverSk;
-		int serverPk;
-		int hostIp;
-		int hostIdPk;
-		Key hostIpSk;
-		ByteVec secHostIpSk;
 
 		AcAuthReq_G2S acAuthReq_g2s;
 		AuthQu authQu;
@@ -65,8 +57,8 @@ class Server {
 		ByteVec SymEnc(ByteVec msg, int key);
 		void Sign(unsigned char* msg, unsigned char* sig, size_t msglen);
 		bool Verify(unsigned char* msg, unsigned char* sig, size_t msglen);
-		int receive(ByteVec msg);
-		int send(ByteVec msg);
+		int receive();
+		int send(u_char* data_, int length_);
 		void SMLMainServer();
 };
 static int __currentState = STATE___init;

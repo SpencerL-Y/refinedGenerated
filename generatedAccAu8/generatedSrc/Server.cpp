@@ -1,8 +1,8 @@
 #include "../generatedHeader/Server.h"
-int Server::receive(ByteVec msg){
+int Server::receive(){
 	/*Add IP Str and portNUm here*/
-	std::string IPStr_ = "192.168.43.52";
-	u_short portNum_ = 6666;
+	std::string IPStr_ = SELF_IP_STR;
+	u_short portNum_ = SELF_IP_PORT;
 	UDPReceiver  er;
 	/*allocation for dst_ here*/
 	if(tempDataServer != NULL){
@@ -18,24 +18,18 @@ int Server::receive(ByteVec msg){
 	} else {
 
 	}
-	tempDataServerStr = tempDataServer;
-	std::cout << "recv: "<< tempDataServerStr << std::endl;
+	std::cout << "recv: "<< tempDataServer << std::endl;
 	return result;
 
 }
-int Server::send(ByteVec msg){
+int Server::send(u_char* data_, int length_){
 	/*Add Ip Str and portNum here*/
-	std::string IPStr_ = "192.168.43.52";
-	u_short portNum_ = 8888;
+	std::string IPStr_ = GATEWAY_IP_STR;
+	u_short portNum_ = GATEWAY_IP_PORT;
 	UDPSender snd;
 	/*Add length and data content to send here*/
-	u_char* data_ = (u_char*)malloc(msg.data.size()*sizeof(char));
-	memcpy(data_, (u_char*)msg.getData().c_str(), msg.data.size());
-	int length_ = msg.getData().size();
-	snd.sendPacket(data_, length_, IPStr_, portNum_);
+	int result = snd.sendPacket(data_, length_, IPStr_, portNum_);
 	std::cout << "udp send: " << data_ << std::endl;
-	free(data_);
-	int result;
 	return result;
 }
 
@@ -64,7 +58,7 @@ void Server::SMLMainServer(){
 			case STATE___init:{
 
 				std::cout << "--------------------STATE___init" << std::endl;
-				receive(msg);
+				receive();
 				std::cout << "udp packet received" << std::endl;
 				__currentState = STATE__reqRecved;
 				break;
@@ -90,10 +84,10 @@ void Server::SMLMainServer(){
 					authQu.auth_hdr.version = 1;
 					authQu.client_id = acAuthReq_g2s.client_id;
 					authQu.random_num_rs = htonl(rand()); 
-					authQu.server_id.byte1 = 0; 
+					authQu.server_id.byte1 = 127; 
 					authQu.server_id.byte2 = 0; 
 					authQu.server_id.byte3 = 0; 
-					authQu.server_id.byte4 = 0;
+					authQu.server_id.byte4 = 1;
 					
 					Sign((unsigned char*)&authQu, (unsigned char*)&authQu.server_signature, sizeof(AuthQu) - 16);
 				__currentState = STATE__queCreated;
@@ -110,8 +104,7 @@ void Server::SMLMainServer(){
 					}
 					tempDataServer = (char*)malloc(sizeof(AuthQu));
 					memcpy(tempDataServer, &authQu, sizeof(AuthQu));
-					msg.data = tempDataServer;
-					send(msg);
+					send((u_char*)tempDataServer, sizeof(AuthQu));
 					__currentState = STATE__queSent;
 
 				
@@ -126,7 +119,7 @@ void Server::SMLMainServer(){
 			case STATE__queSent:{
 				std::cout << "--------------------STATE__queSent" << std::endl;
 				
-				receive(msg);
+				receive();
 				std::cout << "udp packet received" << std::endl;
 				__currentState = STATE__queRespRecved;
 				
@@ -175,8 +168,7 @@ void Server::SMLMainServer(){
 				}
 				tempDataServer = (char*)malloc(sizeof(AcAuthAns));
 				memcpy(tempDataServer, &acAuthAns, sizeof(AcAuthAns));
-				msg.data = tempDataServer;
-				send(msg);
+				send((u_char*)tempDataServer, sizeof(AcAuthAns));
 				__currentState = STATE___final;
 				
 				break;}

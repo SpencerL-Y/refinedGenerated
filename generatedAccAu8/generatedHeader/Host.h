@@ -55,7 +55,7 @@ class Host {
 		void Sign(unsigned char* msg, unsigned char* sig, size_t msglen);
 		bool Verify(unsigned char* msg, unsigned char* sig, size_t msglen);
 		int receive();
-		int send(ByteVec msg, u_short type_num, u_char dmac[6]);
+		int send(char* data_, int length, u_char dmac[6]);
 		void SMLMainHost();
 		void initConfig();
 		bool IPEqual(ip_address* ip1, ip_address* ip2);

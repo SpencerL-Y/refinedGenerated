@@ -2,12 +2,15 @@
 static void dataHandlerHostReceive(u_char* param, const struct pcap_pkthdr* header, const u_char* packetData){
 	ether_header* eh;
 	eh = (ether_header*)packetData;
-	/*Configure your own protocol number of ethernet frame*/
-	
+	/*Configure your own prootcol number of ethernet frame*/
+
 	if(ntohs(eh->type) == 0x888f){
+		std::cout << "ETHER RECEIVED:" << std::endl;
 		auth_header* authHead = (auth_header*)((char*)packetData + sizeof(ether_header));
-		u_short type_num = ntohs(authHead->type);
-		if(type_num == 1){
+		u_char type_num = authHead->type;
+		std::cout << "version: " << (int) authHead->version << std::endl;
+		std::cout << "type num: " << (int)type_num << std::endl;
+		if(type_num == 0x01){
 			// broadcast
 			std::cout << "client: broadcast received" << std::endl;
 			if(tempDataHost != NULL){
@@ -15,9 +18,8 @@ static void dataHandlerHostReceive(u_char* param, const struct pcap_pkthdr* head
 			}
 			tempDataHost = (char*)malloc(sizeof(char) * sizeof(GwAnce));
 			memcpy(tempDataHost, ((char*)packetData + sizeof(ether_header)),  sizeof(GwAnce));
-			tempDataHostStr = tempDataHost;
 			pcap_breakloop(devHost);
-		} else if(type_num == 3){
+		} else if(type_num == 0x11){
 			// response
 			std::cout << "client: response received" << std::endl;
 			if(tempDataHost != NULL){
@@ -25,20 +27,19 @@ static void dataHandlerHostReceive(u_char* param, const struct pcap_pkthdr* head
 			}
 			tempDataHost = (char*)malloc(sizeof(char)*sizeof(AcAuthAns));
 			memcpy(tempDataHost, ((char*)packetData + sizeof(ether_header)), sizeof(AcAuthAns));
-			tempDataHostStr = tempDataHost;
 			pcap_breakloop(devHost);
-		} else if(type_num == 4){
+		} else if(type_num == 0x20){
 			// authentication
-			std::cout << "client: authentication received" << std::endl;
+			std::cout << "client: authQu received" << std::endl;
 			if(tempDataHost != NULL){
 				free(tempDataHost);
 			}
 			tempDataHost = (char*)malloc(sizeof(char)*sizeof(AuthQu));
 			memcpy(tempDataHost, ((char*)packetData + sizeof(ether_header)), sizeof(AuthQu));
-			tempDataHostStr = tempDataHost;
 			pcap_breakloop(devHost);
+		} else {
+			std::cout << "client: ignored" << std::endl;
 		}
-		return;
 	}
 }
 int Host::receive(){
@@ -46,12 +47,13 @@ int Host::receive(){
 	int length_ = 0;
 	u_char* data_ = (u_char*)malloc(length_*sizeof(u_char));
 	u_char* dst_;	/*Add MAC Address here*/
-	ushort mac[6];
+	u_char mac[6];
 	EtherReceiver er;
 	pcap_if_t* dev = er.getDevice();
 	char errbuf[500];
 	pcap_t* selectedAdp = pcap_open_live(dev->name, 65536, 1, 1000, errbuf);
 	devHost = selectedAdp;
+	std::cout << dev->name << std::endl;
 	/*Add self defined dataHandler to handle data received*/
 	/*parameters: u_char* param, const struct pcap_pkthdr* header, const u_char* packetData*/
 	er.listenWithHandler(devHost, dataHandlerHostReceive, data_);
@@ -61,26 +63,24 @@ int Host::receive(){
 	return result;
 
 }
-int Host::send(ByteVec msg, u_short type_num, u_char dmac[6]){
+int Host::send(char* data_, int length, u_char dmac[6]){
 	//2: request package
 	//5: acknownledge
 	/*Configure your own implementation of length_*/
-	std::string data = msg.getData();
-
-	u_char* data_ = (u_char*)malloc(data.size()*sizeof(u_char));
-	memcpy(data_, data.c_str(), data.size());
 	u_char mac[6];
 	// set your client and gateway mac here
 	// HEREEEEEEEEEEEEEEE
-	for(int i = 0; i < 6; i++){
-		mac[i] = 0x11;
-	}
+	mac[0] = 0x48;
+	mac[1] = 0x2a;
+	mac[2] = 0xe3;
+	mac[3] = 0x60;
+	mac[4] = 0x31;
+	mac[5] = 0xfa;
 	EtherSender snd(mac);
 	snd.getDevice();
 	/*add your identifier of the sender*/
 	std::cout << "send ether frame" << std::endl;
-	int success =snd.sendEtherWithMac(data_, data.size(), dmac);
-	free(data_);
+	int success =snd.sendEtherWithMac((u_char*)data_, length, dmac);
 	int result;
 	return result;
 
@@ -113,7 +113,7 @@ void Host::initConfig(){
 }
 
 
-bool IPEqual(ip_address* ip1, ip_address* ip2){
+bool Host::IPEqual(ip_address* ip1, ip_address* ip2){
 		if(ip1->byte1 == ip2->byte1 &&
 		   ip1->byte2 == ip2->byte2 &&
 		   ip1->byte3 == ip2->byte3 &&
@@ -129,26 +129,26 @@ void Host::SMLMainHost(){
 		switch(__currentState){
 			case STATE___init:{
 				std::cout << "--------------------STATE___init" << std::endl;
-					std::cout << "client: GwAnce received" << std::endl;
 					receive();
+					std::cout << "client: GwAnce received" << std::endl;
 					memcpy(&gwAnce, tempDataHost, sizeof(GwAnce));
 					acAuthReq_c2g.auth_hdr.length = htons(sizeof(AcAuthReq_C2G) - sizeof(auth_header));
 					acAuthReq_c2g.auth_hdr.serial_num = htonl(ntohl(gwAnce.auth_hdr.serial_num));
 					acAuthReq_c2g.auth_hdr.timestamp = gwAnce.auth_hdr.timestamp;
-					acAuthReq_c2g.auth_hdr.type = 0x01;
+					acAuthReq_c2g.auth_hdr.type = 0x10;
 					acAuthReq_c2g.auth_hdr.version = 1;
 					//TODO: CONFIGURE THE CLIENT IP
-					acAuthReq_c2g.client_id.byte1 = 0;
+					acAuthReq_c2g.client_id.byte1 = 127;
 					acAuthReq_c2g.client_id.byte2 = 0;
 					acAuthReq_c2g.client_id.byte3 = 0;
-					acAuthReq_c2g.client_id.byte4 = 0;
+					acAuthReq_c2g.client_id.byte4 = 1;
 					//TODO: CONFIGURE THE CLIENT MAC
-					acAuthReq_c2g.client_mac[0] = 0;
-					acAuthReq_c2g.client_mac[1] = 0;
-					acAuthReq_c2g.client_mac[2] = 0;
-					acAuthReq_c2g.client_mac[3] = 0;
-					acAuthReq_c2g.client_mac[4] = 0;
-					acAuthReq_c2g.client_mac[5] = 0;
+					acAuthReq_c2g.client_mac[0] = 0x48;
+					acAuthReq_c2g.client_mac[1] = 0x2a;
+					acAuthReq_c2g.client_mac[2] = 0xe3;
+					acAuthReq_c2g.client_mac[3] = 0x60;
+					acAuthReq_c2g.client_mac[4] = 0x31;
+					acAuthReq_c2g.client_mac[5] = 0xfa;
 					
 					acAuthReq_c2g.gateway_id = gwAnce.gateway_id;
 					//TODO: add sign here
@@ -163,15 +163,15 @@ void Host::SMLMainHost(){
 			case STATE__reqMsgCreated:{
 				std::cout << "--------------------STATE__reqMsgCreated" << std::endl;
 					
-					SendStr sendStr;
 					char* sendData = (char*)malloc(sizeof(AcAuthReq_C2G) * sizeof(char));
 					memcpy(sendData, &acAuthReq_c2g, sizeof(AcAuthReq_C2G));
-					sendStr.data = sendData;
-					free(sendData);
-					std::cout << "send: " << sendStr.data << std::endl;
+					
+					
+					std::cout << "send: " << sendData << std::endl;
 					// CONFIGURE THE DMAC BY HELLO PACKET
 					u_char* dmac = gwAnce.gateway_mac;
-					send(sendStr, 2, dmac);
+					send(sendData, sizeof(AcAuthReq_C2G), dmac);
+					free(sendData);
 				__currentState = STATE__reqSent;
 				
 				break;}
@@ -217,7 +217,7 @@ void Host::SMLMainHost(){
 					sendStr.data = sendData;
 					// CONFIGURE THE MAC HERE
 					u_char dmac[6];
-					send(sendStr, 5, dmac);
+					send(sendData, 5, dmac);
 				__currentState = STATE__queRespSent;
 				
 				break;

@@ -22,8 +22,8 @@
 #include "../CommLib/NetComm/include/EtherSender.hpp"
 #include "../CommLib/NetComm/include/UDPSender.hpp"
 #include "../CommLib/NetComm/include/UDPReceiver.hpp"
-#include "../CryptoLib/include/Cryptor.hpp"
-#include "../UserType.hpp" 
+#include "../CommLib/NetComm/include/packet.hpp"
+#include "../UserType.hpp"
 #define STATE___init 0
 #define STATE___final 1
 #define STATE__reqMsgRecved 2
@@ -33,9 +33,13 @@
 #define STATE__queRespRecved 6
 #define STATE__queRespSent 7
 #define STATE__authRespRecved 8
+std::string SELF_IP_STR = "127.0.0.1";
+std::string SERVER_IP_STR = "127.0.0.1";
+u_short SERVER_IP_PORT = 8888;
+u_short SELF_IP_PORT = 6666;
 static pcap_t* devGateway;
-static char* tempDataGateway;
-static std::string tempDataGatewayStr;
+char* tempDataGateway;
+std::string tempDataGatewayStr;
 ;class Gateway {
 	
 	private:
@@ -55,10 +59,10 @@ static std::string tempDataGatewayStr;
 	public: 
 		void Sign(unsigned char* msg, unsigned char* sig, size_t msglen);
 		bool Verify(unsigned char* msg, unsigned char* sig, size_t msglen);
-		int recvFromHost(ByteVec msg);
-		int sendToHost(ByteVec msg);
-		int recvFromServer(ByteVec msg);
-		int sendToServer(ByteVec msg);
+		int recvFromHost();
+		int sendToHost(u_char* data_, int length_);
+		int recvFromServer();
+		int sendToServer();
 		void SMLMainGateway();
 };
 static int __currentState = STATE___init;

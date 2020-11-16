@@ -40,7 +40,7 @@ static void dataHandlerGatewayrecvFromHost(u_char* param, const struct pcap_pkth
 		}*/
 	}
 }
-int Gateway::recvFromHost(ByteVec msg){
+int Gateway::recvFromHost(){
 	/*Configure your own implementation of length_*/
 	int length_ = 1000;
 	u_char* data_ = (u_char*)malloc(length_*sizeof(u_char));
@@ -55,31 +55,33 @@ int Gateway::recvFromHost(ByteVec msg){
 	/*parameters: u_char* param, const struct pcap_pkthdr* header, const u_char* packetData*/
 	er.listenWithHandler(devGateway, dataHandlerGatewayrecvFromHost, data_);
 	/*Add your own data processing logic here*/
-	std::cout << "recv: " << tempDataGatewayStr << std::endl;
 	free(data_);
 	int result;
 	return result;
 
 }
-int Gateway::sendToHost(ByteVec msg){
+
+int Gateway::sendToHost(u_char* data_, int length_){
 	/*Configure your own implementation of length_*/
-	int length_ = tempDataGatewayStr.size();
-	u_char* data_ = (u_char*)malloc(length_*sizeof(u_char));
-	memcpy(data_, tempDataGatewayStr.c_str(), tempDataGatewayStr.size());
+	std::cout << "send size: " << length_ << std::endl;
 	//TODO: configure gateway mac
 	u_char mac[6];
+	mac[0] = 0x48;
+	mac[1] = 0x2a;
+	mac[2] = 0xe3;
+	mac[3] = 0x60;
+	mac[4] = 0x31;
+	mac[5] = 0xfa;
 	EtherSender snd(mac);
 	snd.getDevice();
 	/*add your identifier of the sender*/
 	int result =snd.sendEtherBroadcast(data_, length_);
-	
 	return result;
-
 }
-int Gateway::recvFromServer(ByteVec msg){
+int Gateway::recvFromServer(){
 	/*Add IP Str and portNUm here*/
-	std::string IPStr_ = "192.168.43.157";
-	u_short portNum_ = 8888;
+	std::string IPStr_ = SELF_IP_STR;
+	u_short portNum_ = SELF_IP_PORT;
 	UDPReceiver  er;
 	/*allocation for dst_ here*/
 	if(tempDataGateway != NULL){
@@ -90,26 +92,25 @@ int Gateway::recvFromServer(ByteVec msg){
 	auth_header* auth_hdr = (auth_header*)tempDataGateway;
 	if(auth_hdr->type == 0x20){
 		memcpy(&authQu, tempDataGateway, sizeof(AuthQu));
-	} else if(auth_hdr->length == 0x11){
+	} else if(auth_hdr->type == 0x11){
 		memcpy(&acAuthAns, tempDataGateway, sizeof(AcAuthAns));
 	}
-	tempDataGatewayStr = tempDataGateway;
-	std::cout << "udp recv: " << tempDataGatewayStr << std::endl;
+	std::cout << "udp recv: " << tempDataGateway << std::endl;
 	return result;
 
 }
-int Gateway::sendToServer(ByteVec msg){
+
+int Gateway::sendToServer(){
 	std::cout << "send to server" << std::endl;
 	/*Add Ip Str and portNum here*/
 	//TODO: add Server IP here
-	std::string IPStr_ = "192.168.43.157";
-	u_short portNum_ = 6666;
+	std::string IPStr_ =  SERVER_IP_STR;
+	u_short portNum_ = SERVER_IP_PORT;
 	UDPSender snd;
 	/*Add length and data content to send here*/
 	
-
-	int length_ = tempDataGatewayStr.size();
 	auth_header* auth_hdr = (auth_header*)tempDataGateway;
+	int length_ = 0;
 	u_char* data_;
 	if(auth_hdr->type == 0x10){
 
@@ -129,6 +130,7 @@ int Gateway::sendToServer(ByteVec msg){
 		packet.gateway_id = old_packet->gateway_id;
 		packet.gateway_random_number = old_packet->gateway_random_number;
 		Sign((unsigned char*)&packet.auth_hdr, (unsigned char*)&packet.gateway_signature, sizeof(AcAuthReq_G2S) - 16);
+		length_ = sizeof(AcAuthReq_G2S);
 		memcpy(data_, &packet, sizeof(AcAuthReq_G2S));
 	} else if(auth_hdr->type = 0x21){
 		memcpy(&this->authQuAck, tempDataGateway, sizeof(AuthQuAck));
@@ -167,44 +169,44 @@ void Gateway::SMLMainGateway(){
 		switch(__currentState){
 			case STATE___init:{
 				std::cout << "--------------------STATE___init" << std::endl;
-					if(tempDataGateway != NULL){
-						free(tempDataGateway);
-					}
-					tempDataGateway = (char*)malloc(sizeof(GwAnce));
-					GwAnce ancePacket;
-					ancePacket.auth_hdr.length = htonl(sizeof(GwAnce) - sizeof(auth_header));
-					ancePacket.auth_hdr.serial_num = htonl(0);
-					ancePacket.auth_hdr.type = 0x01;
-					ancePacket.auth_hdr.version = 1;
+					
+					gwAnce.auth_hdr.length = htonl(sizeof(GwAnce) - sizeof(auth_header));
+					gwAnce.auth_hdr.serial_num = htonl(0);
+					gwAnce.auth_hdr.timestamp = htonl(0);
+					gwAnce.auth_hdr.type = 0x01;
+					gwAnce.auth_hdr.version = 1;
 					//TODO: configure gateway ip and mac here
-					ancePacket.gateway_id.byte1 = 255;
-					ancePacket.gateway_id.byte2 = 255;
-					ancePacket.gateway_id.byte3 = 255;
-					ancePacket.gateway_id.byte4 = 255;
-					ancePacket.gateway_mac[0] = 0x11;
-					ancePacket.gateway_mac[1] = 0x11;
-					ancePacket.gateway_mac[2] = 0x11;
-					ancePacket.gateway_mac[3] = 0x11;
-					ancePacket.gateway_mac[4] = 0x11;
-					ancePacket.gateway_mac[5] = 0x11;
-					ancePacket.gateway_mac[6] = 0x11;
+					gwAnce.gateway_id.byte1 = 127;
+					gwAnce.gateway_id.byte2 = 0;
+					gwAnce.gateway_id.byte3 = 0;
+					gwAnce.gateway_id.byte4 = 1;
+					gwAnce.gateway_mac[0] = 0x48;
+					gwAnce.gateway_mac[1] = 0x2a;
+					gwAnce.gateway_mac[2] = 0xe3;
+					gwAnce.gateway_mac[3] = 0x60;
+					gwAnce.gateway_mac[4] = 0x31;
+					gwAnce.gateway_mac[5] = 0xfa;
 					//TODO: configure random number here
-					ancePacket.gateway_random_number = htonl(0);
+					gwAnce.gateway_random_number = htonl(rand());
 					time_t t;
 					time(&t);
 					latest_time = t;
-					ancePacket.auth_hdr.timestamp = htonl(t);
+					gwAnce.auth_hdr.timestamp = htonl(t);
 					//TODO: add memcpy here
-					Sign((unsigned char*)&ancePacket, (unsigned char*)&ancePacket.signature, sizeof(GwAnce) - 16);
-					gwAnce = ancePacket;
+					Sign((unsigned char*)&gwAnce, (unsigned char*)&gwAnce.signature, sizeof(GwAnce) - 16);
+					char* output = (char*)&gwAnce;
+					std::cout << sizeof(GwAnce) << std::endl;
 					if(tempDataGateway != NULL){
 						free(tempDataGateway);
 					}
 					tempDataGateway = (char*)malloc(sizeof(GwAnce));
 					memcpy(tempDataGateway, &gwAnce, sizeof(GwAnce));
-					tempDataGatewayStr = tempDataGateway;
-					sendToHost(msg);
-					recvFromHost(msg);
+					GwAnce *gwa = (GwAnce*)tempDataGateway;
+					auth_header* auth_hdr = (auth_header*)tempDataGateway;
+					std::cout << "type: " << (int)gwAnce.auth_hdr.type << " : " << (int)auth_hdr->type << std::endl;
+					std::cout << "tempDataGateway: " << tempDataGateway << std::endl;
+					sendToHost((u_char*)tempDataGateway, sizeof(GwAnce));
+					recvFromHost();
 					memcpy(&acAuthReq_c2g, tempDataGateway, sizeof(AcAuthReq_C2G));
 					
 				__currentState = STATE__reqMsgRecved;
@@ -217,51 +219,49 @@ void Gateway::SMLMainGateway(){
 			case STATE__reqMsgRecved:{
 				std::cout << "--------------------STATE__reqMsgRecved" << std::endl;
 
-					sendToServer(msg);
+					sendToServer();
 				__currentState = STATE__reqMsgSent;
 				
 				break;}
 			case STATE__reqMsgSent:{
 				std::cout << "--------------------STATE__reqMsgSent" << std::endl;
 				
-					recvFromServer(msg);
-					msg.data = tempDataGatewayStr;
+					recvFromServer();
 				__currentState = STATE__authQueRecved;
 				
 				break;}
 			case STATE__authQueRecved:{
 				std::cout << "--------------------STATE__authQueRecved" << std::endl;
 				
-					sendToHost(msg);
+					sendToHost((u_char*)tempDataGateway, sizeof(AuthQu));
 				__currentState = STATE__authQueSent;
 				
 				break;}
 			case STATE__authQueSent:{
 				std::cout << "--------------------STATE__authQueSent" << std::endl;
 				
-					recvFromHost(msg);
-					msg.data = tempDataGateway;
+					recvFromHost();
 				__currentState = STATE__queRespRecved;
 				
 				break;}
 			case STATE__queRespRecved:{
 				std::cout << "--------------------STATE__queRespRecved" << std::endl;
 				
-					sendToServer(msg);
+					sendToServer();
 				__currentState = STATE__queRespSent;
 				
 				break;}
 			case STATE__queRespSent:{
 				std::cout << "--------------------STATE__queRespSent" << std::endl;
 				
-					recvFromServer(msg);
+					recvFromServer();
 				__currentState = STATE__authRespRecved;
 				
 				break;}
 			case STATE__authRespRecved:{
 				std::cout << "--------------------STATE__authRespRecved" << std::endl;
 				
-					sendToHost(msg);
+					sendToHost((u_char*)tempDataGateway, sizeof(AcAuthAns));
 				__currentState = STATE___final;
 				
 				break;}

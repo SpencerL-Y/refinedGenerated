@@ -11,4 +11,4 @@ os.system("mv *.a CryptoLib/src/")
 os.system("g++ -g -o Host ./generatedSrc/Host.cpp -L./CommLib/NetComm/src/ -lnetcomm -L./CryptoLib/src/ -lipe -lcryptorlib -L./CryptoLib/src/ -lssl -lcrypto -lpcap -lboost_serialization")
 os.system("g++ -g -o Gateway ./generatedSrc/Gateway.cpp -L./CommLib/NetComm/src/ -lnetcomm -L./CryptoLib/src/ -lipe -lcryptorlib -L./CryptoLib/src/ -lssl -lcrypto -lpcap -lboost_serialization")
 os.system("g++ -g -o Server ./generatedSrc/Server.cpp -L./CommLib/NetComm/src/ -lnetcomm -L./CryptoLib/src/ -lipe -lcryptorlib -L./CryptoLib/src/ -lssl -lcrypto -lpcap -lboost_serialization")
-
+os.system("g++ -g -o test ./generatedSrc/test.cpp -L./CommLib/NetComm/src/ -lnetcomm -L./CryptoLib/src/ -lcryptorlib -lssl -lcrypto -lpcap -lboost_serialization")
