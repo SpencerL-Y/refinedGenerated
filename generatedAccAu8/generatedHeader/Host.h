@@ -23,6 +23,7 @@
 #include "../CryptoLib/include/Cryptor.hpp"
 #include "../UserType.hpp" 
 #include "../CommLib/NetComm/include/packet.hpp"
+#include "../../ibe/ibe.h"
 #define STATE___init 0
 #define STATE___final 1
 #define STATE__reqMsgCreated 2
@@ -48,7 +49,7 @@ class Host {
 		
 		// client id;
 		ip_address clientId;
-		ip_address clientId_int;
+		int clientId_int;
         unsigned char master_privkey[IBE_MASTER_PRIVKEY_LEN];
         unsigned char master_pubkey[IBE_MASTER_PUBKEY_LEN];
         unsigned char usr_privkey[IBE_USR_PRIVKEY_LEN];

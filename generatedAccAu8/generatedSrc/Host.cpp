@@ -100,6 +100,7 @@ void Host::Sign(unsigned char* msg, unsigned char* sig, size_t msglen){
 	 if (digital_sign(msg, msglen, usr_privkey, sig) == -1) {
          printf("digital_sign failed\n");
      }
+	 std::cout << "sign over" << std::endl;
 }
 
 bool Host::Verify(unsigned char* msg, unsigned char* sig, size_t msglen){
@@ -107,9 +108,18 @@ bool Host::Verify(unsigned char* msg, unsigned char* sig, size_t msglen){
 }
 
 void Host::initConfig(){
-    master_privkey = [0x40, 0x8c, 0xe9, 0x67];
-    master_pubkey = [0x31, 0x57, 0xcd, 0x29, 0xaf, 0x13, 0x83, 0xb7, 0x5e, 0xa0];
+	clientId.byte1 = 127;
+	clientId.byte2 = 0;
+	clientId.byte3 = 0;
+	clientId.byte4 = 1;
+	memcpy(&clientId_int, &clientId, sizeof(int));
+	unsigned char mprik[IBE_MASTER_PRIVKEY_LEN] = {0x40, 0x8c, 0xe9, 0x67};
+	unsigned char mpubk[IBE_MASTER_PUBKEY_LEN] = {0x31, 0x57, 0xcd, 0x29, 0xaf, 0x13, 0x83, 0xb7, 0x5e, 0xa0};
+	memcpy(master_privkey, mprik, IBE_MASTER_PRIVKEY_LEN);
+	memcpy(master_pubkey, mpubk, IBE_MASTER_PUBKEY_LEN);
+	std::cout << "start user key gen" << std::endl;
     userkey_gen(clientId_int, master_privkey, usr_privkey);
+	std::cout << "start user key over" << std::endl;
 }
 
 
@@ -125,6 +135,7 @@ bool Host::IPEqual(ip_address* ip1, ip_address* ip2){
 }
 
 void Host::SMLMainHost(){
+	initConfig();
 	while(__currentState != -100) {
 		switch(__currentState){
 			case STATE___init:{
