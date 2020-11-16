@@ -48,6 +48,10 @@ class Host {
 		
 		// client id;
 		ip_address clientId;
+		ip_address clientId_int;
+        unsigned char master_privkey[IBE_MASTER_PRIVKEY_LEN];
+        unsigned char master_pubkey[IBE_MASTER_PUBKEY_LEN];
+        unsigned char usr_privkey[IBE_USR_PRIVKEY_LEN];
 		
 	public: 
 		ByteVec SymEnc(ByteVec msg, int key);

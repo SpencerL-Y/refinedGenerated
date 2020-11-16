@@ -97,19 +97,19 @@ ByteVec result;
 }
 void Host::Sign(unsigned char* msg, unsigned char* sig, size_t msglen){
 	//sig = malloc(IBE_SIG_LEN * sizeof(unsigned char));
-	// if (digital_sign(msg, msglen, usr_privkey, sig) == -1) {
-    //     printf("digital_sign failed\n");
-    //     goto end;
-    // }
+	 if (digital_sign(msg, msglen, usr_privkey, sig) == -1) {
+         printf("digital_sign failed\n");
+     }
 }
 
 bool Host::Verify(unsigned char* msg, unsigned char* sig, size_t msglen){
-	return true;
-	//return digital_verify(sig, msg, msglen, hostIp, master_pubkey);
+	return digital_verify(sig, msg, msglen, clientId_int, master_pubkey);
 }
 
 void Host::initConfig(){
-
+    master_privkey = [0x40, 0x8c, 0xe9, 0x67];
+    master_pubkey = [0x31, 0x57, 0xcd, 0x29, 0xaf, 0x13, 0x83, 0xb7, 0x5e, 0xa0];
+    userkey_gen(clientId_int, master_privkey, usr_privkey);
 }
 
 
