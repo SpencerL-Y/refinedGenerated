@@ -53,6 +53,9 @@
         "thread": "cpp",
         "cinttypes": "cpp",
         "typeinfo": "cpp",
-        "set": "cpp"
+        "set": "cpp",
+        "bitset": "cpp",
+        "condition_variable": "cpp",
+        "mutex": "cpp"
     }
 }

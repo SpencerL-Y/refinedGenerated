@@ -11,6 +11,7 @@
 #include <thread>
 #include <stdlib.h>
 #include <typeinfo>
+#include <ibe.h>
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/serialization/vector.hpp>
@@ -53,13 +54,19 @@ class Server {
 		ip_address client_id;
 		ip_address gateway_id;
 		ip_address server_id;
+		int serverId_int;
+
+        unsigned char master_privkey[IBE_MASTER_PRIVKEY_LEN];
+        unsigned char master_pubkey[IBE_MASTER_PUBKEY_LEN];
+        unsigned char usr_privkey[IBE_USR_PRIVKEY_LEN];
 	public: 
 		ByteVec SymEnc(ByteVec msg, int key);
 		void Sign(unsigned char* msg, unsigned char* sig, size_t msglen);
-		bool Verify(unsigned char* msg, unsigned char* sig, size_t msglen);
+		bool Verify(unsigned char* msg, unsigned char* sig, size_t msglen, int verify_id);
 		int receive();
 		int send(u_char* data_, int length_);
 		void SMLMainServer();
+		void initConfig();
 };
 static int __currentState = STATE___init;
 int main(int argc, char** argv) {

@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <typeinfo>
 #include <time.h>
+#include <ibe.h>
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 
@@ -55,15 +56,25 @@ std::string tempDataGatewayStr;
 		AuthQu authQu;
 		AcAuthAns acAuthAns;
 
+		ip_address gateway_id;
+		int gatewayId_int;
+
+
+
+        unsigned char master_privkey[IBE_MASTER_PRIVKEY_LEN];
+        unsigned char master_pubkey[IBE_MASTER_PUBKEY_LEN];
+        unsigned char usr_privkey[IBE_USR_PRIVKEY_LEN];
+
 
 	public: 
 		void Sign(unsigned char* msg, unsigned char* sig, size_t msglen);
-		bool Verify(unsigned char* msg, unsigned char* sig, size_t msglen);
+		bool Verify(unsigned char* msg, unsigned char* sig, size_t msglen, int verify_id);
 		int recvFromHost();
 		int sendToHost(u_char* data_, int length_);
 		int recvFromServer();
 		int sendToServer();
 		void SMLMainGateway();
+		void initConfig();
 };
 static int __currentState = STATE___init;
 int main(int argc, char** argv) {

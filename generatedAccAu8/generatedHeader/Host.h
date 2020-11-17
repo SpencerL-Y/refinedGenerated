@@ -11,6 +11,8 @@
 #include <thread>
 #include <stdlib.h>
 #include <typeinfo>
+#include <time.h>
+#include <ibe.h>
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/serialization/vector.hpp>
@@ -23,7 +25,7 @@
 #include "../CryptoLib/include/Cryptor.hpp"
 #include "../UserType.hpp" 
 #include "../CommLib/NetComm/include/packet.hpp"
-#include "../../ibe/ibe.h"
+#include "./MQ.h"
 #define STATE___init 0
 #define STATE___final 1
 #define STATE__reqMsgCreated 2
@@ -35,8 +37,8 @@
 #define STATE__respRecved 8
 #define STATE__verifyAuthRespFailed 9
 static pcap_t* devHost;
-static char* tempDataHost;
-static std::string tempDataHostStr;
+ConcurrentQueue cq;
+char client_mac[6];
 class Host {
 	private:
 		// new version attributes
@@ -48,8 +50,9 @@ class Host {
 		AcAuthAns acAuthAns;
 		
 		// client id;
-		ip_address clientId;
+		ip_address client_id;
 		int clientId_int;
+		int gatewayId_int;
         unsigned char master_privkey[IBE_MASTER_PRIVKEY_LEN];
         unsigned char master_pubkey[IBE_MASTER_PUBKEY_LEN];
         unsigned char usr_privkey[IBE_USR_PRIVKEY_LEN];
@@ -58,12 +61,12 @@ class Host {
 		ByteVec SymEnc(ByteVec msg, int key);
 		ByteVec SymDec(ByteVec msg, int key);
 		void Sign(unsigned char* msg, unsigned char* sig, size_t msglen);
-		bool Verify(unsigned char* msg, unsigned char* sig, size_t msglen);
+		bool Verify(unsigned char* msg, unsigned char* sig, size_t msglen, int verify_id);
 		int receive();
 		int send(char* data_, int length, u_char dmac[6]);
 		void SMLMainHost();
 		void initConfig();
-		bool IPEqual(ip_address* ip1, ip_address* ip2);
+		bool IPEqual(ip_address* ip1, int clientipnum);
 };
 static int __currentState = STATE___init;
 int main(int argc, char** argv) {

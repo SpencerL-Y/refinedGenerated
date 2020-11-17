@@ -1,4 +1,11 @@
 #include "../generatedHeader/Gateway.h"
+
+int Id2Int(ip_address ip){
+	int result;
+	memcpy(&result, &ip, sizeof(int));
+	return result;
+}
+
 static void dataHandlerGatewayrecvFromHost(u_char* param, const struct pcap_pkthdr* header, const u_char* packetData){
 	ether_header* eh;
 	eh = (ether_header*)packetData;
@@ -113,25 +120,28 @@ int Gateway::sendToServer(){
 	int length_ = 0;
 	u_char* data_;
 	if(auth_hdr->type == 0x10){
-
-		AcAuthReq_C2G* old_packet = (AcAuthReq_C2G*)tempDataGateway;
 		memcpy(&acAuthReq_c2g, tempDataGateway, sizeof(AcAuthReq_C2G));
-		data_ = (u_char*)malloc(sizeof(AcAuthReq_G2S));
-		AcAuthReq_G2S packet;
-		packet.auth_hdr.length = htonl(sizeof(AcAuthReq_G2S) - sizeof(auth_header));
-		packet.auth_hdr.serial_num = old_packet->auth_hdr.serial_num;
-		packet.auth_hdr.timestamp = old_packet->auth_hdr.timestamp;
-		packet.auth_hdr.serial_num = old_packet->auth_hdr.serial_num;
-		packet.auth_hdr.type = old_packet->auth_hdr.type;
-		packet.auth_hdr.version = old_packet->auth_hdr.version;
-		packet.client_id = old_packet->client_id;
-		memcpy(packet.client_mac, old_packet->client_mac, 6*sizeof(char));
-		memcpy(packet.client_signature, old_packet->client_signature, 16*sizeof(char));
-		packet.gateway_id = old_packet->gateway_id;
-		packet.gateway_random_number = old_packet->gateway_random_number;
-		Sign((unsigned char*)&packet.auth_hdr, (unsigned char*)&packet.gateway_signature, sizeof(AcAuthReq_G2S) - 16);
-		length_ = sizeof(AcAuthReq_G2S);
-		memcpy(data_, &packet, sizeof(AcAuthReq_G2S));
+		if(!Verify((unsigned char*)&acAuthReq_c2g, acAuthReq_c2g.client_signature, sizeof(AcAuthReq_C2G) - 16, Id2Int(acAuthReq_c2g.client_id))){
+			
+		} else {
+			AcAuthReq_C2G* old_packet = (AcAuthReq_C2G*)tempDataGateway;
+			data_ = (u_char*)malloc(sizeof(AcAuthReq_G2S));
+			AcAuthReq_G2S packet;
+			packet.auth_hdr.length = htonl(sizeof(AcAuthReq_G2S) - sizeof(auth_header));
+			packet.auth_hdr.serial_num = old_packet->auth_hdr.serial_num;
+			packet.auth_hdr.timestamp = old_packet->auth_hdr.timestamp;
+			packet.auth_hdr.serial_num = old_packet->auth_hdr.serial_num;
+			packet.auth_hdr.type = old_packet->auth_hdr.type;
+			packet.auth_hdr.version = old_packet->auth_hdr.version;
+			packet.client_id = old_packet->client_id;
+			memcpy(packet.client_mac, old_packet->client_mac, 6*sizeof(char));
+			memcpy(packet.client_signature, old_packet->client_signature, 16*sizeof(char));
+			packet.gateway_id = old_packet->gateway_id;
+			packet.gateway_random_number = old_packet->gateway_random_number;
+			Sign((unsigned char*)&packet.auth_hdr, (unsigned char*)&packet.gateway_signature, sizeof(AcAuthReq_G2S) - 16);
+			length_ = sizeof(AcAuthReq_G2S);
+			memcpy(data_, &packet, sizeof(AcAuthReq_G2S));
+		}
 	} else if(auth_hdr->type = 0x21){
 		memcpy(&this->authQuAck, tempDataGateway, sizeof(AuthQuAck));
 		//test the validity TODO
@@ -142,10 +152,12 @@ int Gateway::sendToServer(){
 			std::cout << "error: info error" << std::endl;
 		}
 		data_ = (u_char*)malloc(sizeof(AuthQuAck));
+		length_ = sizeof(AuthQuAck);
 		memcpy(data_, &this->authQuAck, sizeof(AuthQuAck));
 	}
 
-	std::cout << "send: " << tempDataGatewayStr << std::endl;
+	std::cout << "send: " << tempDataGateway << std::endl;
+	std::cout << "send data_: " << data_ << std::endl;
 	int result = snd.sendPacket(data_, length_, IPStr_, portNum_);
 	free(data_);
 	return result;
@@ -153,18 +165,45 @@ int Gateway::sendToServer(){
 
 void Gateway::Sign(unsigned char* msg, unsigned char* sig, size_t msglen){
 	//sig = malloc(IBE_SIG_LEN * sizeof(unsigned char));
-	// if (digital_sign(msg, msglen, usr_privkey, sig) == -1) {
-    //     printf("digital_sign failed\n");
-    //     goto end;
-    // }
+	if (digital_sign(msg, msglen, usr_privkey, sig) == -1) {
+        printf("digital_sign failed\n");
+    }
 }
 
-bool Gateway::Verify(unsigned char* msg, unsigned char* sig, size_t msglen){
-	return true;
-	// return digital_verify(sig, msg, msglen, hostIp, master_pubkey);
+bool Gateway::Verify(unsigned char* msg, unsigned char* sig, size_t msglen, int verify_id){
+	if(digital_verify(sig, msg, msglen, verify_id, master_pubkey) == -1){
+		std::cout << "VERIFY FAILED !!!" << std::endl;
+		return false;
+	} else {
+		std::cout << "VERIFY CORRECT..." << std::endl;
+		return true;
+	}
 }
+
+
+
+void Gateway::initConfig(){
+	ibe_init();
+	gateway_id.byte1 = 127;
+	gateway_id.byte2 = 0;
+	gateway_id.byte3 = 0;
+	gateway_id.byte4 = 1;
+	memcpy(&gatewayId_int, &gateway_id, sizeof(int));
+	unsigned char mprik[IBE_MASTER_PRIVKEY_LEN] = {0x40, 0x8c, 0xe9, 0x67};
+	unsigned char mpubk[IBE_MASTER_PUBKEY_LEN] = {0x31, 0x57, 0xcd, 0x29, 0xaf, 0x13, 0x83, 0xb7, 0x5e, 0xa0};
+	memcpy(master_privkey, mprik, IBE_MASTER_PRIVKEY_LEN);
+	memcpy(master_pubkey, mpubk, IBE_MASTER_PUBKEY_LEN);
+	// if (masterkey_gen(master_privkey, master_pubkey) == -1) {
+    //         printf("masterkey_gen failed\n");
+    // }
+	std::cout << "start user key gen" << std::endl;
+    userkey_gen(gatewayId_int, master_privkey, usr_privkey);
+	std::cout << "start user key over" << std::endl;
+}
+
 
 void Gateway::SMLMainGateway(){
+	initConfig();
 	while(__currentState != -100) {
 		switch(__currentState){
 			case STATE___init:{
@@ -193,12 +232,12 @@ void Gateway::SMLMainGateway(){
 					latest_time = t;
 					gwAnce.auth_hdr.timestamp = htonl(t);
 					//TODO: add memcpy here
-					Sign((unsigned char*)&gwAnce, (unsigned char*)&gwAnce.signature, sizeof(GwAnce) - 16);
-					char* output = (char*)&gwAnce;
+					Sign((unsigned char*)&gwAnce, (unsigned char*)gwAnce.signature, sizeof(GwAnce) - 16);
 					std::cout << sizeof(GwAnce) << std::endl;
 					if(tempDataGateway != NULL){
 						free(tempDataGateway);
 					}
+					Verify((unsigned char*)&gwAnce, gwAnce.signature, sizeof(GwAnce) - 16, gatewayId_int);
 					tempDataGateway = (char*)malloc(sizeof(GwAnce));
 					memcpy(tempDataGateway, &gwAnce, sizeof(GwAnce));
 					GwAnce *gwa = (GwAnce*)tempDataGateway;
